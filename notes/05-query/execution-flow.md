@@ -62,7 +62,16 @@ The previous transition influences the next iteration's decisions. For example:
 
 This is the full execution flow from when `query()` accepts a prompt to when it returns a result. The flow is a `while(true)` loop — steps 1-12 can repeat multiple times (each pass = one API round-trip) before finally exiting at step 7d.
 
-Note: recovery and tool execution are in **separate branches**. If `!needsFollowUp` (model stopped) → recovery path. If `needsFollowUp` (tools needed) → tool execution path. They never both run in the same pass.
+Note: recovery and tool execution are in **separate branches**, determined by `needsFollowUp`.
+
+**`needsFollowUp`** (line 558) — a boolean that answers: "did the model ask to use tools?" It starts as `false` each iteration. During streaming (step 3), whenever a `tool_use` block arrives in an assistant message, it's set to `true` (line 834). After streaming finishes, the loop checks this flag:
+
+- `needsFollowUp = true` → tools needed → tool execution path (step 8)
+- `needsFollowUp = false` → model stopped → recovery/stop hooks path (step 7)
+
+Note: the code does NOT check `stop_reason === 'tool_use'` — the comment on line 554 says it's unreliable. Instead, the presence of actual `tool_use` blocks is the signal. Simpler and more reliable.
+
+The two branches (`!needsFollowUp` → step 7: recovery/stop hooks, and `needsFollowUp` → steps 8-12: tool execution) never both run in the same pass.
 
 ### 1. Skill prefetch start (line 331)
 Kicks off skill discovery in the background. Runs in parallel with everything below.

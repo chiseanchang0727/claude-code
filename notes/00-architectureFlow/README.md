@@ -25,3 +25,4 @@ The execution flow when a query enters Claude Code.
 - Steps 7-12 repeat in a loop — the model may call tools multiple times per turn
 - The loop exits when: the model stops calling tools, max turns reached, budget exceeded, or interrupted
 - If `processUserInput()` returns `shouldQuery: false` (e.g., local /slash command), steps 7-12 are skipped entirely
+- Some tools (like Agent) spawn their own `query()` loop — creating a recursive structure where step 9 re-enters step 7. The subagent runs its own full loop (API call → tools → repeat) before returning a result to the parent's loop.

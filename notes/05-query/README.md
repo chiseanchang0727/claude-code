@@ -12,3 +12,6 @@ Reference: [src/query.ts](../../src/query.ts)
 - [tombstone.md](./tombstone.md) — Retract orphaned messages when streaming fails and falls back to non-streaming
 - [streaming-tool-execution.md](./streaming-tool-execution.md) — Tools start executing while the model is still streaming
 - [yieldMissingToolResultBlocks.md](./yieldMissingToolResultBlocks.md) — Safety net ensuring every tool_use gets a matching tool_result
+- [stop-hooks.md](./stop-hooks.md) — What fires after the model stops (memory extraction, auto-dream, prompt suggestion)
+- [token-budget.md](./token-budget.md) — Nudge-to-continue logic with diminishing returns detection
+- [tool-orchestration.md](./tool-orchestration.md) — Sequential fallback for tool execution with concurrency partitioning

@@ -146,9 +146,26 @@ Checks if total token count exceeds a threshold for the model's context window. 
 
 The three layers are **not mutually exclusive** — snip and microcompact can both fire, and autocompact may still be needed after both.
 
+## buildConversationChain() — Reading the Chain Back
+
+The read counterpart to `recordTranscript()`. Used by `/resume` to reconstruct a conversation from the flat JSONL file.
+
+**Simple case:** walks backwards from the leaf message following `parentUuid` links, then reverses. A linked list traversal.
+
+**Parallel tools complication:** when the model emits multiple `tool_use` blocks in one response, streaming splits them into separate assistant messages (one per tool_use block). They share the same `message.id` but have different `uuid`s. Each tool result's `parentUuid` points to its own assistant message:
+
+```
+                  ┌→ assistantA (Read file1) → toolResult_A
+assistant_prev →  ├→ assistantB (Read file2) → toolResult_B  → next_assistant
+                  └→ assistantC (Grep)       → toolResult_C
+```
+
+The chain walk follows one path (e.g., through assistantA) and **misses** the siblings. `recoverOrphanedParallelToolResults()` fixes this by finding sibling assistant messages (same `message.id`) and stitching the missed branches back into the chain.
+
+This only matters for `/resume` — during live execution, all messages are already in memory.
+
 ## Not Yet Covered (TODO)
 
-- **`buildConversationChain()`** — the read counterpart to `recordTranscript()`. Reconstructs conversation from flat JSONL by walking `parentUuid` links. Used by resume.
 - **File history snapshots** — `recordFileHistorySnapshot()` saves file states at each user message, enabling rewind/undo of file changes.
 - **Session metadata** — titles, tags, agent names/colors, worktree state, PR links appended as metadata entries. Functions: `saveCustomTitle()`, `saveTag()`, `linkSessionToPR()`, `saveAgentName()`, etc.
 - **Session listing/search** — `fetchLogs()`, `loadMessageLogs()`, `searchSessionsByCustomTitle()` — querying across sessions for the resume picker.
