@@ -6,7 +6,7 @@ Related: [prefetch.md](./prefetch.md) (the read side), [05-query — Stop hooks]
 
 ## Overview
 
-Memory extraction is the **write side** of the memory system — it automatically creates memory files from the conversation. Runs in the background after each query loop completes, invisible to the user.
+Memory extraction is the **write side** of the memory system — it automatically creates memory files from the conversation. Fires at step 7b (stop hooks) when the model stops and recovery passes — before the loop formally returns at 7d. See [stop-hooks.md](../05-query/stop-hooks.md) for the full context. Invisible to the user.
 
 There are two paths for creating memories:
 

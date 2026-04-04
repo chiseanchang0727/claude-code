@@ -62,16 +62,7 @@ The previous transition influences the next iteration's decisions. For example:
 
 This is the full execution flow from when `query()` accepts a prompt to when it returns a result. The flow is a `while(true)` loop — steps 1-12 can repeat multiple times (each pass = one API round-trip) before finally exiting at step 7d.
 
-Note: recovery and tool execution are in **separate branches**, determined by `needsFollowUp`.
-
-**`needsFollowUp`** (line 558) — a boolean that answers: "did the model ask to use tools?" It starts as `false` each iteration. During streaming (step 3), whenever a `tool_use` block arrives in an assistant message, it's set to `true` (line 834). After streaming finishes, the loop checks this flag:
-
-- `needsFollowUp = true` → tools needed → tool execution path (step 8)
-- `needsFollowUp = false` → model stopped → recovery/stop hooks path (step 7)
-
-Note: the code does NOT check `stop_reason === 'tool_use'` — the comment on line 554 says it's unreliable. Instead, the presence of actual `tool_use` blocks is the signal. Simpler and more reliable.
-
-The two branches (`!needsFollowUp` → step 7: recovery/stop hooks, and `needsFollowUp` → steps 8-12: tool execution) never both run in the same pass.
+Note: recovery and tool execution are in **separate branches**, determined by `needsFollowUp` (explained after step 12).
 
 ### 1. Skill prefetch start (line 331)
 Kicks off skill discovery in the background. Runs in parallel with everything below.
@@ -101,6 +92,7 @@ If user interrupted during streaming, clean up orphaned tool_use blocks and exit
 The Haiku call from the previous iteration — by now it has had 5-30s to resolve.
 
 ### Branch: `!needsFollowUp` — model stopped (line 1062)
+> What is `needsFollowUp` and how is it determined? See [explanation after step 12](#how-the-branch-is-determined-needsfollowup).
 
 #### 7a. Recovery (lines 1085-1256)
 Only if the last message was a withheld error:
@@ -110,7 +102,7 @@ Only if the last message was a withheld error:
 - Each recovery is a state machine transition (`state = next; continue`)
 
 #### 7b. Stop hooks (line 1267)
-Check if hooks want to block continuation or retry.
+Fires fire-and-forget background tasks (memory extraction, prompt suggestion, auto-dream) and runs user-defined stop hooks. Memory extraction and other forked agents launch here — before the loop formally exits. See [stop-hooks.md](./stop-hooks.md) for details.
 
 #### 7c. Token budget check (line 1309)
 If model hasn't used its full budget, nudge to continue.
@@ -140,6 +132,31 @@ If exceeded, yield max_turns_reached and exit.
 
 ### 12. State transition (line 1727)
 `state = { messages: [...old, ...assistantMessages, ...toolResults], transition: 'next_turn' }; continue`
+
+### How the branch is determined: `needsFollowUp`
+
+**`needsFollowUp`** (line 558) — a boolean that answers: "did the model ask to use tools?" It starts as `false` each iteration. During streaming (step 3), whenever a `tool_use` block arrives in an assistant message, it's set to `true` (line 834). After streaming finishes, the loop checks this flag:
+
+- `needsFollowUp = true` → tools needed → tool execution path (step 8)
+- `needsFollowUp = false` → model stopped → recovery/stop hooks path (step 7)
+
+Note: the code does NOT check `stop_reason === 'tool_use'` — the comment on line 554 says it's unreliable. Instead, the presence of actual `tool_use` blocks is the signal. Simpler and more reliable.
+
+The code checks the actual content blocks returned by the model (line 831-834):
+
+```typescript
+const msgToolUseBlocks = message.message.content.filter(
+  content => content.type === 'tool_use',
+) as ToolUseBlock[]
+if (msgToolUseBlocks.length > 0) {
+  toolUseBlocks.push(...msgToolUseBlocks)
+  needsFollowUp = true
+}
+```
+
+So `needsFollowUp` is set by code inspecting the response, not by trusting a metadata field from the model. It's like the difference between asking someone "did you put groceries in the bag?" (trusting `stop_reason`) vs opening the bag and checking yourself (scanning for `tool_use` blocks). They open the bag.
+
+The two branches (`!needsFollowUp` → step 7: recovery/stop hooks, and `needsFollowUp` → steps 8-12: tool execution) never both run in the same pass.
 
 ### Iteration flow summary
 
