@@ -75,3 +75,11 @@ Bundled skills in `src/skills/bundled/` (batch, claude-api, loop, remember, sche
 - **Dual mode:** Interactive TUI (default) vs headless/print mode (`-p`/`--print`) with different initialization paths.
 - **Context injection:** System prompt is composed from multiple sources: CLAUDE.md files, memory files, git status, tool descriptions, feature-dependent sections.
 - **Permission model:** Granular tool-level + filesystem-level permissions with enterprise policy support and user denial tracking.
+
+## Study Notes (`notes/`)
+
+- One numbered directory per subsystem (e.g. `07-tools/`)
+- `README.md` per directory: overview, source file references, contents index
+- Sub-files for individual concepts/patterns, named by the pattern not the file
+- Lead with the *why* or *insight*, not just what the code does
+- Cross-link to source files with `src/path/to/file.ts`

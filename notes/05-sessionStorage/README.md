@@ -170,3 +170,4 @@ This only matters for `/resume` — during live execution, all messages are alre
 - **Session metadata** — titles, tags, agent names/colors, worktree state, PR links appended as metadata entries. Functions: `saveCustomTitle()`, `saveTag()`, `linkSessionToPR()`, `saveAgentName()`, etc.
 - **Session listing/search** — `fetchLogs()`, `loadMessageLogs()`, `searchSessionsByCustomTitle()` — querying across sessions for the resume picker.
 - **Content replacement** — `recordContentReplacement()` — replaces message content after the fact (e.g., permission decisions that modify tool results).
+- Transcript size limit: `MAX_TRANSCRIPT_READ_BYTES = 50 * 1024 * 1024`
