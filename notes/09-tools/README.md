@@ -11,6 +11,6 @@ Reference: [`src/tools/`](../../src/tools/), [`src/tools.ts`](../../src/tools.ts
 ## Key tools to study
 
 - `BashTool` — most-used, shows permission + sandboxing model
-- `AgentTool` — spawns sub-agents, recursive query loop
+- `AgentTool` — spawns sub-agents, recursive query loop. Two types: **fork** (inherits full parent history) vs **fresh agent** (starts blank). See [`05-sessionStorage/README.md` — Context inheritance](../05-sessionStorage/README.md#context-inheritance--two-types-of-subagent)
 - `MCPTool` — dynamic tool from external MCP server
 - `EditTool` / `WriteTool` — file mutation with safety checks
