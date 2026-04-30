@@ -76,6 +76,30 @@ The code warns: only set `maxOutputTokens` when cache sharing is not a goal (e.g
 
 `saveCacheSafeParams()` / `getLastCacheSafeParams()` is a module-level slot. After each turn, `handleStopHooks` saves the current params. Post-turn forks (promptSuggestion, postTurnSummary, `/btw`) can grab them without every caller threading params through.
 
+## Mid-Turn Fallback: `side_question` Before First Snapshot
+
+SDK callers can send a `side_question` control message at any time — including mid-turn, before the first turn completes and before `saveCacheSafeParams()` has ever been called. In that case `getLastCacheSafeParams()` returns `null` and the happy path is unavailable.
+
+`buildSideQuestionFallbackParams` (`src/utils/queryContext.ts`) is the recovery: it reconstructs `CacheSafeParams` from scratch by calling `fetchSystemPromptParts` and assembling the system prompt the same way `QueryEngine.ask()` would. It also strips any in-progress assistant message (`stop_reason === null`) from the message list before forking.
+
+The tradeoff: it deliberately skips the coordinator extras and memory-mechanics prompt that `QueryEngine` would inject — those are session-specific and unavailable at this call site. So the rebuilt prefix may not be byte-identical → possible cache miss. But the side question succeeds; without the fallback it would fail entirely.
+
+```
+SDK side_question arrives mid-turn
+│
+├─ getLastCacheSafeParams() → null  (no completed turn yet)
+│
+└─ buildSideQuestionFallbackParams()
+       ├─ fetchSystemPromptParts()   ← base system prompt + user/system context
+       ├─ assemble systemPrompt      ← mirrors QueryEngine.ask() assembly
+       ├─ strip in-progress message  ← drop assistant msg with stop_reason === null
+       └─ build fresh ToolUseContext
+              │
+              ▼
+       runSideQuestion(cacheSafeParams)
+       ← may miss cache (no coordinator extras), but succeeds
+```
+
 ## skipCacheWrite
 
 Fire-and-forget forks (e.g., speculation) set `skipCacheWrite: true`. This shifts the cache marker to the **second-to-last** message instead of the last. The fork doesn't leave its own tail in the cache — it only reads from the parent's existing cache entry, doesn't create a new one.
