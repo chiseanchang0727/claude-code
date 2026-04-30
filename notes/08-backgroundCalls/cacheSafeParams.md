@@ -1,4 +1,4 @@
-# CacheSafeParams
+# CacheSafeParams `#prompt-cache` `#cost-management`
 
 Reference: [src/utils/forkedAgent.ts](../../src/utils/forkedAgent.ts) (lines 46-68), [src/services/api/claude.ts](../../src/services/api/claude.ts) (`addCacheBreakpoints`, `getCacheControl`)
 
@@ -10,9 +10,13 @@ Every API call to Claude processes the full message history (system prompt + too
 
 The API caches based on a **prefix key**: system prompt + tools + model + messages (in order) + thinking config. If two API calls share the same prefix, the second one reads from cache instead of reprocessing those tokens. This is **not** KV cache sharing at the GPU level — it's the API's server-side caching feature.
 
+**Cost impact:** cache reads are charged at 0.1x the normal input token price. For a long conversation, a forked agent that shares the parent's prefix pays full price only for its new prompt messages (typically a few hundred tokens) — the rest is nearly free.
+
 Cache control is set per-message via `cache_control: { type: 'ephemeral' }` headers. The `addCacheBreakpoints()` function in `claude.ts` places exactly **one** cache marker per request (on the last message). Why only one? The internal cache system (Mycro) frees KV pages at non-cached positions — two markers would protect an intermediate position unnecessarily.
 
 ## CacheSafeParams
+
+> Same pattern as `backfillObservableInput` in the tool execution pipeline — never mutate what gets recorded/cached, operate on a copy instead. See [`09-tools/execution-pipeline.md` — step 6](../../09-tools/execution-pipeline.md).
 
 `CacheSafeParams` captures the five fields that form the cache key:
 
@@ -60,7 +64,7 @@ User sees response (never waited for any fork)
 
 The slot is written once per turn, read by multiple forks. All forks share the same cache because their prefix is identical to the main conversation's. Only the main conversation saves params — subagents don't overwrite the slot.
 
-## The maxOutputTokens Trap
+## The maxOutputTokens Trap `#prompt-cache`
 
 Setting `maxOutputTokens` on a fork can **break cache sharing**. Here's why:
 
@@ -76,7 +80,7 @@ The code warns: only set `maxOutputTokens` when cache sharing is not a goal (e.g
 
 `saveCacheSafeParams()` / `getLastCacheSafeParams()` is a module-level slot. After each turn, `handleStopHooks` saves the current params. Post-turn forks (promptSuggestion, postTurnSummary, `/btw`) can grab them without every caller threading params through.
 
-## Mid-Turn Fallback: `side_question` Before First Snapshot
+## Mid-Turn Fallback: `side_question` Before First Snapshot `#prompt-cache` `#resilience`
 
 SDK callers can send a `side_question` control message at any time — including mid-turn, before the first turn completes and before `saveCacheSafeParams()` has ever been called. In that case `getLastCacheSafeParams()` returns `null` and the happy path is unavailable.
 
